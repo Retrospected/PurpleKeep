@@ -79,5 +79,6 @@ A fresh infrastructure will be deployed only at the beginning of the pipeline. A
 
 ## Credits
 
-* https://github.com/splunk/attack_range
-* https://redcanary.com/blog/coalmine/
+* [Splunk's Attack Range](https://github.com/splunk/attack_range)
+* [Sp4rkCon 2023 - Continuous End-to-End Detection Validation and Reporting with Carrie Roberts](https://vimeo.com/819912016/c76af1ca39)
+* [Red Canary's Coalmine](https://redcanary.com/blog/coalmine/)
