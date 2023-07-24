@@ -1,0 +1,122 @@
+parameters:
+- name: resourceGroupName
+  displayName: Name of the resource group where the VM should be deployed
+  type: string
+  default: PurpleKeep
+
+- name: azureServiceConnection
+  displayName: Name of the subscription that contains the resource group
+  type: string
+  default: PurpleKeep
+
+- name: techniqueId
+  displayName: Select the (sub-)technique to run (e.g. T1059.003 or T1003)
+  type: string
+  default: "T1003, T1027, T1049"
+
+stages:
+- stage: RunAtomicTTP_${{ parameters.techniqueId }}
+  displayName: 'Run a specific TTP from the Atomic RedTeam Repository'
+  variables:
+  - template: '/variables.yml'
+  pool:
+    vmImage: ${{ variables.agentImage }}
+  jobs:
+    - job: RunAtomicTTPJob_${{ parameters.techniqueId }}
+      steps:
+        - task: AzureCLI@2
+          continueOnError: true
+          inputs:
+            azureSubscription: '${{ parameters.azureServiceConnection }}'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |          
+              echo "-- Installing SSH key from Vault --"
+              az keyvault secret download --name '${{ variables.keyName }}' --vault-name "${{ variables.name }}-kv" --query value -o tsv -f $(Build.SourcesDirectory)/id_rsa
+              chmod 600 $(Build.SourcesDirectory)/id_rsa
+              echo "-- Getting Public IP from the AzureVM --"
+              publicIpResource="${{ variables.name }}-vm-ip"
+              publicIp=$(az network public-ip show --resource-group "${{ parameters.resourceGroupName }}" --name $publicIpResource --query ipAddress -o tsv)
+              echo "-- Adding host fingerprint to the known hosts file --"
+              ssh-keyscan $publicIp >> $(Build.SourcesDirectory)/known_hosts
+              echo "-- Configuration --"
+              adminUsername=$(adminUsername)
+              shell="ssh -i id_rsa -o "UserKnownHostsFile=known_hosts" $adminUsername@$publicIp "
+              echo "-- Installing Atomics --"
+              $shell 'IEX (IWR 'https://raw.githubusercontent.com/redcanaryco/invoke-atomicredteam/master/install-atomicsfolder.ps1' -UseBasicParsing); Install-AtomicsFolder -Force;'
+              echo "-- Running technique(s) ${{ parameters.techniqueId }} --"
+              techniques="${{ parameters.techniqueId }}"
+              techniques=$(echo $techniques | sed 's/\,/ /g')
+              for technique in $techniques
+              do
+                technique=$(echo "$technique" | sed 's/_/\./g')
+                echo "-- Running: $technique --"
+                $shell ' 
+
+                  #HKLM
+                  if (!(Test-Path -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell")) { 
+                    New-Item -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell
+                  }
+                  if (!(Get-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -ErrorAction SilentlyContinue)) { 
+                    New-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy
+                  }
+                  Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass
+                  Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1
+                  
+                  #HKCU
+                  if (!(Test-Path -Path "HKCU:\Software\Policies\Microsoft\Windows\PowerShell")) { 
+                    New-Item -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell
+                  }
+                  if (!(Get-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -ErrorAction SilentlyContinue)) { 
+                    New-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy
+                  }
+                  Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass
+                  Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1
+                  
+                  Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine -Force
+                  Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser -Force
+                  Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+
+                  Import-Module Invoke-AtomicRedTeam -Force
+                  Import-Module C:\temp\Attire-ExecutionLogger.psm1 -Force
+                  if (Test-Path C:\AtomicRedTeam\atomics\'$technique'\'$technique'.yaml) {
+                      $atomicTechnique = Get-AtomicTechnique -Path C:\AtomicRedTeam\atomics\'$technique'\'$technique'.yaml
+                      foreach ($atomic in $atomicTechnique.atomic_tests) {
+
+                          Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass -Force
+                          Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1 -Force
+                          
+                          Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass -Force
+                          Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1 -Force
+                          
+                          Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine -Force
+                          Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser -Force
+                          Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+
+                          Import-Module Invoke-AtomicRedTeam -Force
+
+                          # TODO: remove this, as soon as the release of Invoke-AtomicRedTeam includes the attire logger by default.
+                          Import-Module C:\temp\Attire-ExecutionLogger.psm1 -Force
+                          
+                          if ($atomic.supported_platforms.contains("windows") -and ($atomic.executor -ne "manual")) {
+                            Write-Host "Running ${technique}: ${atomic}"X
+                            # Get Prereqs for test
+                            $preparation = Invoke-AtomicTest $atomicTechnique.attack_technique -TestGuids $atomic.auto_generated_guid -GetPrereqs -TimeoutSeconds 60 6>&1
+
+                            if ($preparation -like "*Failed to meet prereq*") {
+                              Write-Host "Skipping technique '$technique' because prereqs could not be met"
+                            } else {
+                              # Run test
+                              Invoke-AtomicTest $atomicTechnique.attack_technique -TestGuids $atomic.auto_generated_guid -ExecutionLogPath "C:\temp\atomic_results.csv" -TimeoutSeconds 60
+                            }
+                            # Sleep then cleanup
+                            Start-Sleep 3
+                            Invoke-AtomicTest  $atomicTechnique.attack_technique -TestGuids $atomic.auto_generated_guid -Cleanup
+                          }
+                      }
+                  }
+                  else {
+                      Write-Host "Could not find Atomic for (sub-)technique:"'$technique'
+                  }
+                '
+              done

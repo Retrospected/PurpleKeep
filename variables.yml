@@ -1,0 +1,12 @@
+variables:
+  name: 'PurpleKeep'
+  agentImage: 'ubuntu-latest'
+  vmSize: 'Standard_B4ms'
+  adminUsername: '$(name)'
+  location: 'westeurope'
+  keyName: '$(name)-sshkey'
+  adminPWName: '$(name)-adminpw'
+  mainTemplateFile: './infrastructure/main.bicep'
+  onboardScriptMDE: 'test_WindowsDefenderATPLocalOnboardingScript.cmd'
+  securityPolicy: 'prod_SecPol.inf'
+  auditPolicy: 'prod_AuditPol.csv'

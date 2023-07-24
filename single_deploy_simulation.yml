@@ -1,0 +1,45 @@
+trigger:
+- none
+
+parameters:
+- name: azureServiceConnection
+  displayName: Name of the subscription that contains the resource group
+  type: string
+  default: PurpleKeep
+
+- name: resourceGroupName
+  displayName: Name of the resource group where the VM should be deployed
+  type: string
+  default: PurpleKeep
+
+- name: techniqueIds
+  displayName: Select the (sub-)technique to run (e.g. T1059.003 or T1003)
+  type: string
+  default: "T1027,T1049,T1003"
+
+stages:
+  - template: '/infrastructure/azure-pipelines.yml'
+    parameters:
+      azureServiceConnection: '${{ parameters.azureServiceConnection }}'
+      resourceGroupName: ${{ parameters.resourceGroupName }}
+      deploymentId: Single_Deploy
+  - stage: Wait_for_run_Single_Deploy
+    displayName: Waiting until deployment has been finished
+    jobs:
+    - job: 
+      displayName: Wait
+      steps:
+        - script: echo Waiting 10min for deployment completion before running the Atomic && sleep 600
+  - ${{ each technique in split(parameters.techniqueIds, ',') }} :
+      - template: '/simulation/azure-pipelines.yml'
+        parameters:
+          azureServiceConnection: '${{ parameters.azureServiceConnection }}'
+          resourceGroupName: ${{ parameters.resourceGroupName }}
+          techniqueId: ${{ replace(technique, '.', '_') }}
+      - stage: Wait_for_next_${{ replace(technique, '.', '_') }}
+        displayName: Waiting until the test has finished
+        jobs:
+        - job: 
+          displayName: Wait
+          steps:
+            - script: echo Waiting 10min for logs to ingest && sleep 600

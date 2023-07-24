@@ -1,0 +1,184 @@
+parameters:
+  - name: resourceGroupName
+    displayName: Name of the resource group where the VM should be deployed
+    type: string
+    default: PurpleKeep
+
+  - name: azureServiceConnection
+    displayName: Name of the subscription that contains the resource group
+    type: string
+    default: PurpleKeep
+
+  - name: deploymentId
+    displayName: Specify a deployment ID
+    type: string
+    default: Default
+
+stages:
+- stage: ResourceCreation_${{ parameters.deploymentId }}
+  variables:
+  - template: '/variables.yml'
+  displayName: 'Create Azure Resources'
+  jobs:
+  - job: Resources_${{ parameters.deploymentId }}
+    steps:
+    - task: AzureCLI@2
+      name: vmAdminPW
+      inputs:
+        azureSubscription: '${{ parameters.azureServiceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az vm delete --resource-group "${{ parameters.resourceGroupName }}" --name "${{ variables.name }}-vm" --yes
+          pw=$(strings /dev/urandom | grep -o '[[:alnum:]]' | head -n 32 | tr -d '\n'; echo)
+          echo "##vso[task.setvariable variable=adminPW;isSecret=true;isOutput=true]$pw"
+    - task: AzureResourceManagerTemplateDeployment@3
+      inputs:
+        deploymentName: 'Create_Resources'
+        azureResourceManagerConnection: '${{ parameters.azureServiceConnection }}'
+        deploymentScope: 'Resource Group'
+        templateLocation: 'Linked artifact'
+        location: "${{ variables.location }}"
+        csmFile: "${{ variables.mainTemplateFile }}"
+        overrideParameters: '-location "${{ variables.location }}" -name "${{ variables.name }}" -adminPassword "$(vmAdminPW.adminPW)" -vmSize "${{ variables.vmSize }}"'
+        deploymentMode: 'Complete'
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.azureServiceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "-- Cleaning AdminPW from KeyVault --"
+          az keyvault secret delete --vault-name "${{ variables.name }}-kv" --name "${{ variables.adminPWName }}"
+          echo "-- Placing new AdminPW value in KeyVault --"
+          az keyvault secret set --vault-name "${{ variables.name }}-kv" --name "${{ variables.adminPWName }}" --value "$(vmAdminPW.adminPW)"
+
+- stage: Secrets_${{ parameters.deploymentId }}
+  displayName: 'Generate SSH keypair and push to the Key Vault'
+  variables:
+  - template: '/variables.yml'
+  dependsOn: ResourceCreation_${{ parameters.deploymentId }}
+  pool:
+    vmImage: ${{ variables.agentImage }}
+  jobs:
+  - job: Generation_${{ parameters.deploymentId }}
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.azureServiceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "-- Cleaning SSH Keys from KeyVault --"
+          az keyvault secret delete --vault-name "${{ variables.name }}-kv" --name "${{ variables.keyName }}"
+          echo "-- Generating SSH keypair --"
+          echo -e 'y' | ssh-keygen -f key -N ""
+          echo "-- Storing SSH private key in the KeyVault --"
+          az keyvault secret set --vault-name "${{ variables.name }}-kv" --name ${{ variables.keyName }} --file key --output none
+          sleep 300
+          echo "-- Installing OpenSSH --"
+          az vm extension set --resource-group ${{ parameters.resourceGroupName }} --vm-name "${{ variables.name }}-vm" --name WindowsOpenSSH --publisher Microsoft.Azure.OpenSSH --version 3.0
+          sleep 600
+          echo "-- Installing public SSH key --"
+          az vm run-command invoke --resource-group ${{ parameters.resourceGroupName }} --name "${{ variables.name }}-vm" --command-id RunPowerShellScript --scripts "'$(cat key.pub)' | Add-Content 'C:\ProgramData\ssh\administrators_authorized_keys';icacls.exe 'C:\ProgramData\ssh\administrators_authorized_keys' /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F'"
+          echo "-- SSH Installation done --"
+
+# Configure VM
+- stage: VMConfiguration_${{ parameters.deploymentId }}
+  displayName: "Configuring the VM, installing pre-requisites"
+  variables:
+  - template: '/variables.yml'
+  pool:
+    vmImage: ${{ variables.agentImage }}
+  jobs:
+  - job: Configuration_${{ parameters.deploymentId }}
+    steps:
+    - task: DownloadSecureFile@1
+      name: downloadEDROnboardingScript
+      inputs:
+        secureFile: "${{ variables.onboardScriptMDE }}"
+    - task: DownloadSecureFile@1
+      name: SecPol
+      inputs:
+        secureFile: "${{ variables.securityPolicy }}"
+    - task: DownloadSecureFile@1
+      name: AuditPol
+      inputs:
+        secureFile: "${{ variables.auditPolicy }}"
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.azureServiceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "-- Installing SSH key from Vault --"
+          az keyvault secret download --name '${{ variables.keyName }}' --vault-name "${{ variables.name }}-kv" --query value -o tsv -f $(Build.SourcesDirectory)/id_rsa
+          chmod 600 $(Build.SourcesDirectory)/id_rsa
+          echo "-- Getting Public IP from the AzureVM --"
+          publicIpResource="${{ variables.name }}-vm-ip"
+          publicIp=$(az network public-ip show --resource-group "${{ parameters.resourceGroupName }}" --name $publicIpResource --query ipAddress -o tsv)
+          echo "-- Adding host fingerprint to the known hosts file --"
+          ssh-keyscan $publicIp >> $(Build.SourcesDirectory)/known_hosts
+          echo "-- Configuring local variables --"
+          adminUsername=$(adminUsername)
+          shell="ssh -i id_rsa -o "UserKnownHostsFile=known_hosts" $adminUsername@$publicIp "
+          echo "-- Installing Atomic Red Team --"
+          cd $(Build.SourcesDirectory)
+          $shell 'powershell.exe -command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force"'
+          $shell 'powershell.exe -command "Install-Module -Name invoke-atomicredteam,powershell-yaml -Scope CurrentUser -Force"'
+          # TODO: remove this, as soon as the release of Invoke-AtomicRedTeam includes the attire logger by default.
+          $shell 'powershell.exe -command "iwr https://raw.githubusercontent.com/Retrospected/invoke-atomic-attire-logger/Retrospected-patch-1/Attire-ExecutionLogger.psm1 -OutFile C:\temp\Attire-ExecutionLogger.psm1"'
+          #$shell 'powershell.exe -command IEX (IWR "https://raw.githubusercontent.com/redcanaryco/invoke-atomicredteam/master/install-atomicredteam.ps1" -UseBasicParsing); Install-AtomicRedTeam'
+          echo "-- Making PowerShell default shell for SSH --"
+          $shell 'powershell.exe -command "New-ItemProperty -Path \"HKLM:\SOFTWARE\OpenSSH\" -Name DefaultShell -Value \"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe\" -PropertyType String -Force"'
+          echo "-- Enrolling MDE --"
+          sed -i '/:USER_CONSENT/,/:SCRIPT_START/{d}' $(downloadEDROnboardingScript.secureFilePath)
+          sed -i '/pause/d' $(downloadEDROnboardingScript.secureFilePath)
+          scp -i id_rsa -o "UserKnownHostsFile=known_hosts" $(downloadEDROnboardingScript.secureFilePath) $(adminUsername)@$publicIp:.
+          $shell ./${{ variables.onboardScriptMDE }}
+          echo "-- Configuring policies --"
+          scp -i id_rsa -o "UserKnownHostsFile=known_hosts" $(SecPol.secureFilePath) $(adminUsername)@$publicIp:SecPol.inf
+          scp -i id_rsa -o "UserKnownHostsFile=known_hosts" $(AuditPol.secureFilePath) $(adminUsername)@$publicIp:AuditPol.csv
+          $shell '
+            # AV Exclusion, we dont care about AV detections for these simulations so want to prevent these as much as possible
+            Write-Host "Adding MD AV Exclusion Path"
+            Add-MpPreference -ExclusionPath "C:\"
+
+            Write-Host "Import security policy file"
+            SecEdit /import /db secedit.sdb /cfg SecPol.inf /overwrite /quiet
+
+            Write-Host "Configure system to use imported security configuration"
+            SecEdit /configure /db secedit.sdb
+
+            Write-Host "Import audit policy file"
+            auditpol /restore /file:AuditPol.csv
+
+            Write-Host "Configuring registry keys"
+            # HKLM
+            if (!(Test-Path -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell")) { 
+              New-Item -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell
+            }
+            if (!(Get-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell" -Name ExecutionPolicy -ErrorAction SilentlyContinue)) { 
+              New-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy
+            }
+            Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass -Force
+            Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1 -Force
+            
+            # HKCU
+            if (!(Test-Path -Path "HKCU:\Software\Policies\Microsoft\Windows\PowerShell")) { 
+              New-Item -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell
+            }
+            if (!(Get-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\PowerShell" -Name ExecutionPolicy -ErrorAction SilentlyContinue)) { 
+              New-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy
+            }
+            Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name ExecutionPolicy -Value Bypass -Force
+            Set-ItemProperty -Path HKCU:\Software\Policies\Microsoft\Windows\PowerShell -Name EnableScripts -Value 1 -Force
+            
+            Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine -Force
+            Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser -Force
+            Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+          '
+          echo "-- Rebooting AzureVM --"
+          az vm restart --resource-group "${{ parameters.resourceGroupName }}" --name "${{ variables.name }}-vm"
+          echo "-- Sleeping 5 minutes to let the VM enroll --"
+          sleep 300

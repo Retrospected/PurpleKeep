@@ -1,0 +1,6 @@
+"Execution Time (UTC)","Execution Time (Local)","Technique","Test Number","Test Name","Hostname","Username","GUID"
+"2023-05-30T12:23:46Z","2023-05-30T12:23:46","T1059.003","1","Create and Execute Batch Script","project-win11","project-win11\project","9e8894c0-50bd-4525-a96c-d4ac78ece388"
+"2023-05-30T12:23:47Z","2023-05-30T12:23:47","T1059.003","2","Writes text to a file and displays it.","project-win11","project-win11\project","127b4afe-2346-4192-815c-69042bec570e"
+"2023-05-30T12:23:47Z","2023-05-30T12:23:47","T1059.003","3","Suspicious Execution via Windows Command Shell","project-win11","project-win11\project","d0eb3597-a1b3-4d65-b33b-2cda8d397f20"
+"2023-05-30T12:23:47Z","2023-05-30T12:23:47","T1059.003","4","Simulate BlackByte Ransomware Print Bombing","project-win11","project-win11\project","6b2903ac-8f36-450d-9ad5-b220e8a2dcb9"
+"2023-05-30T12:23:51Z","2023-05-30T12:23:51","T1059.003","5","Command Prompt read contents from CMD file and execute","project-win11","project-win11\project","df81db1b-066c-4802-9bc8-b6d030c3ba8e"
