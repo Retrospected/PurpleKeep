@@ -89,7 +89,7 @@ A fresh infrastructure will be deployed only at the beginning of the pipeline. A
 * [ ] Unreliable OpenSSH extension installer failing infrastructure deployment
 * [ ] Spamming onboarded devices in the EDR
 
-## Credits
+## References
 
 * [Splunk's Attack Range](https://github.com/splunk/attack_range)
 * [Sp4rkCon 2023 - Continuous End-to-End Detection Validation and Reporting with Carrie Roberts](https://vimeo.com/819912016/c76af1ca39)
