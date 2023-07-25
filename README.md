@@ -1,11 +1,22 @@
-# Introduction 
+# Description 
 
-This project provides Azure-based pipelines to create an infrastructure and run Atomic tests. 
+With the rapidly increasing variety of attack techniques and a simultaneous rise in the number of detection rules offered by EDRs (Endpoint Detection and Response) and custom-created ones, the need for constant functional testing of detection rules has become evident. However, manually re-running these attacks and cross-referencing them with detection rules is a labor-intensive task which is worth automating.
+
+To address this challenge, I developed "PurpleKeep," an open-source initiative designed to facilitate the automated testing of detection rules. Leveraging the capabilities of the [Atomic Red Team project](https://atomicredteam.io) which allows to simulate attacks following [MITRE TTPs](https://attack.mitre.org/) (Tactics, Techniques, and Procedures). PurpleKeep enhances the simulation of these TTPs to serve as a starting point for the  evaluation of the effectiveness of detection rules.
+
+Automating the process of simulating one or multiple TTPs in a test environment comes with certain challenges, one of which is the contamination of the platform after multiple simulations. However, PurpleKeep aims to overcome this hurdle by streamlining the simulation process and facilitating the creation and instrumentation of the targeted platform.
+
+Primarily developed as a proof of concept, PurpleKeep serves as an End-to-End Detection Rule Validation platform tailored for an Azure-based environment. It has been tested in combination with the automatic deployment of Microsoft Defender for Endpoint as the preferred EDR solution. PurpleKeep also provides support for security and audit policy configurations, allowing users to mimic the desired endpoint environment.
+
+To facilitate analysis and monitoring, PurpleKeep integrates with Azure Monitor and Log Analytics services to store the simulation logs and allow further correlation with any events and/or alerts stored in the same platform.
+
+TLDR: PurpleKeep provides an Attack Simulation platform to perform End-to-End Detection Rule Validation in an Azure-based environment.
 
 ## Requirements
 
 The project is based on Azure Pipelines and requires the following to be able to run:
-- Azure Service Connection to a resource group
+- Azure Service Connection to a resource group as described in the [Microsoft Docs](https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints?view=azure-devops&tabs=yaml)
+- Assignment of the "Key Vault Administrator" Role for the previously created Enterprise Application
 - MDE onboarding script, placed as a Secure File in the Library of Azure DevOps and make it accessible to the  pipelines
 
 ### Optional
@@ -49,7 +60,7 @@ There are currently two ways to run the simulation:
 
 This pipeline will deploy a fresh platform after the simulation of each TTP. The Log Analytic workspace will maintain the logs of each run.
 
-**Warning: this can potentially onboard a large number of new hosts into your EDR**
+**Warning: this will onboard a large number of hosts into your EDR**
 
 ### [Single deploy simulation](single_deploy_simulation.yml)
 
@@ -66,6 +77,7 @@ A fresh infrastructure will be deployed only at the beginning of the pipeline. A
 
 ### Nice to have
 * [ ] MDE Off-boarding (?)
+* [ ] Automatically join and leave AD domain
 * [ ] Make Atomics repository configureable
 * [ ] Deploy VECTR as part of the infrastructure and ingest results during simulation. Also see the [VECTR API issue](https://github.com/SecurityRiskAdvisors/VECTR/issues/235)
 * [ ] Tune alert API call to Microsoft Defender for Endpoint (Microsoft.Security alertsSuppressionRules)
