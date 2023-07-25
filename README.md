@@ -10,7 +10,7 @@ Primarily developed as a proof of concept, PurpleKeep serves as an End-to-End De
 
 To facilitate analysis and monitoring, PurpleKeep integrates with Azure Monitor and Log Analytics services to store the simulation logs and allow further correlation with any events and/or alerts stored in the same platform.
 
-TLDR: PurpleKeep provides an Attack Simulation platform to perform End-to-End Detection Rule Validation in an Azure-based environment.
+TLDR: PurpleKeep provides an Attack Simulation platform to serve as a starting point for your End-to-End Detection Rule Validation in an Azure-based environment.
 
 ## Requirements
 
