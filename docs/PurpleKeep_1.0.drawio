@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="OZDHjIwoILLyNLZWax6k" name="Page-1">
-        <mxGraphModel dx="1162" dy="504" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+        <mxGraphModel dx="1181" dy="553" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -54,14 +54,16 @@
                 <mxCell id="98XGgLkDvTHmTnLWgf6D-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" parent="1" source="98XGgLkDvTHmTnLWgf6D-4" target="rHMRhhfsmZjwr-JyM9iI-22" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="98XGgLkDvTHmTnLWgf6D-4" value="Infrastructure deployment" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Pipelines.svg;" parent="1" vertex="1">
-                    <mxGeometry x="202" y="121" width="50" height="50" as="geometry"/>
+                <mxCell id="98XGgLkDvTHmTnLWgf6D-4" value="Rotating simulation" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Pipelines.svg;" parent="1" vertex="1">
+                    <mxGeometry x="202" y="170" width="50" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="98XGgLkDvTHmTnLWgf6D-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="rHMRhhfsmZjwr-JyM9iI-26" target="rHMRhhfsmZjwr-JyM9iI-3" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="98XGgLkDvTHmTnLWgf6D-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="98XGgLkDvTHmTnLWgf6D-7" target="rHMRhhfsmZjwr-JyM9iI-26" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="98XGgLkDvTHmTnLWgf6D-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=-0.003;entryY=0.713;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="98XGgLkDvTHmTnLWgf6D-7" target="rHMRhhfsmZjwr-JyM9iI-22" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="420" y="270" as="targetPoint"/>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="98XGgLkDvTHmTnLWgf6D-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="98XGgLkDvTHmTnLWgf6D-18" target="98XGgLkDvTHmTnLWgf6D-7" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
@@ -69,14 +71,14 @@
                 <mxCell id="98XGgLkDvTHmTnLWgf6D-18" value="PurpleKeep" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Repos.svg;" parent="1" vertex="1">
                     <mxGeometry x="29.5" y="245.5" width="45" height="50" as="geometry"/>
                 </mxCell>
-                <mxCell id="98XGgLkDvTHmTnLWgf6D-21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.017;entryY=0.523;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="98XGgLkDvTHmTnLWgf6D-18" target="98XGgLkDvTHmTnLWgf6D-4" edge="1">
+                <mxCell id="98XGgLkDvTHmTnLWgf6D-21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="98XGgLkDvTHmTnLWgf6D-18" target="98XGgLkDvTHmTnLWgf6D-4" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <mxPoint x="74.5" y="270.5" as="sourcePoint"/>
                         <mxPoint x="225.5" y="215.5" as="targetPoint"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="98XGgLkDvTHmTnLWgf6D-7" value="Atomic test(s)" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Pipelines.svg;" parent="1" vertex="1">
-                    <mxGeometry x="201.5" y="245.5" width="49" height="50" as="geometry"/>
+                <mxCell id="98XGgLkDvTHmTnLWgf6D-7" value="Single deploy simulation" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Pipelines.svg;" parent="1" vertex="1">
+                    <mxGeometry x="202" y="310" width="49" height="50" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
